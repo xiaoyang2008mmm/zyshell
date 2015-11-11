@@ -1,0 +1,7 @@
+#!/usr/bin/python
+""" calls zyhell function """
+
+import zyshell
+
+if __name__ == '__main__':
+    zyshell.main()
