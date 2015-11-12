@@ -18,19 +18,29 @@ import time
 __author__ = "test@zhangyue.com"
 __version__ = "0.9.14"
 
+# Required config variable list per user
 required_config = ['allowed', 'forbidden', 'warning_counter'] 
 #                                                    'timer', 'scp', 'sftp']
 
+# set configuration file path depending on sys.exec_prefix
+# on *Linux sys.exec_prefix = '/usr' and default path must be in '/etc'
+# on *BSD sys.exec_prefix = '/usr/{pkg,local}/' and default path 
+# is '/usr/{pkg,local}/etc'
 if sys.exec_prefix != '/usr':
+    # for *BSD
     conf_prefix = sys.exec_prefix
 else:
+    # for *Linux
     conf_prefix = ''
 config_file = conf_prefix + '/etc/zyshell.conf'
 
+# history file
 history_file = ".lhistory"
 
+# lock_file
 lock_file = ".zyshell_lock"
 
+# help text
 usage = """Usage: zyshell [OPTIONS]
   --config <file> : Config file location (default %s)
   --log    <dir>  : Log files directory
@@ -42,6 +52,7 @@ help_help = """Limited Shell (zyshell) limited help.
 Cheers.
 """
 
+# Intro Text
 intro = """You are in a limited shell.
 Type '?' or 'help' to get the list of allowed commands"""
 
@@ -88,6 +99,14 @@ class ShellCmd(cmd.Cmd, object):
         self.g_line = g_line
 
     def __getattr__(self, attr):
+        """ This method actually takes care of all the called method that are  \
+        not resolved (i.e not existing methods). It actually will simulate     \
+        the existance of any method    entered in the 'allowed' variable list. \
+
+        e.g. You just have to add 'uname' in list of allowed commands in       \
+        the 'allowed' variable, and zyshell will react as if you had            \
+        added a do_uname in the ShellCmd class!
+        """
         if self.g_cmd in ['quit', 'exit', 'EOF']:
             self.log.error('Exited')
             if self.g_cmd == 'EOF':
@@ -190,6 +209,15 @@ class ShellCmd(cmd.Cmd, object):
             self.updateprompt(os.getcwd())
 
     def check_secure(self, line, strict=None, ssh=None):
+        """This method is used to check the content on the typed command.      \
+        Its purpose is to forbid the user to user to override the zyshell       \
+        command restrictions. 
+        The forbidden characters are placed in the 'forbidden' variable.
+        Feel free to update the list. Emptying it would be quite useless..: )
+
+        A warining counter has been added, to kick out of zyshell a user if he  \
+        is warned more than X time (X beeing the 'warning_counter' variable).
+        """
 
         for item in self.conf['forbidden']:
             # allow '&&' and '||' even if singles are forbidden
@@ -292,6 +320,10 @@ class ShellCmd(cmd.Cmd, object):
                 self.stderr.write('事件已经被报告.\n')
 
     def check_path(self, line, completion=None, ssh=None):
+        """ Check if a path is entered in the line. If so, it checks if user   \
+        are allowed to see this path. If user is not allowed, it calls         \
+        self.counter_update. I case of completion, it only returns 0 or 1.
+        """
 
         allowed_path_re = str(self.conf['path'][0])
         denied_path_re = str(self.conf['path'][1][:-1])
@@ -363,6 +395,10 @@ class ShellCmd(cmd.Cmd, object):
             self.prompt = '%s:%s$ ' % (self.promptbase, path)
 
     def cmdloop(self, intro=None):
+        """Repeatedly issue a prompt, accept input, parse an initial prefix    \
+        off the received input, and dispatch to action methods, passing them   \
+        the remainder of the line as argument.
+        """
 
         self.preloop()
         if self.use_rawinput and self.completekey:
@@ -423,6 +459,10 @@ class ShellCmd(cmd.Cmd, object):
                                    'to file %s\n' % self.conf['history_file'])
 
     def complete(self, text, state):
+        """Return the next possible completion for 'text'.
+        If a command has not been entered, then complete against command list. 
+        Otherwise try to call complete_<command> to get list of completions.
+        """
         if state == 0:
             origline = readline.get_line_buffer()
             line = origline.lstrip()
@@ -454,9 +494,19 @@ class ShellCmd(cmd.Cmd, object):
             return None
 
     def default(self, line):
+        """ This method overrides the original default method. 
+        It was originally used to warn when an unknown command was entered     \
+        (e.g. *** Unknown syntax: blabla). 
+        It has been implemented in the __getattr__ method.
+        So it has no use here. Its output is now empty.
+        """
         self.stdout.write('')
 
     def completenames(self, text, *ignored):
+        """ This method overrides the original completenames method to overload\
+        it's output with the command available in the 'allowed' variable       \
+        This is useful when typing 'tab-tab' in the command prompt
+        """
         dotext = 'do_'+text
         names = self.get_names()
         for command in self.conf['allowed']: 
@@ -499,6 +549,11 @@ class ShellCmd(cmd.Cmd, object):
             return None
 
     def onecmd(self, line):
+        """ This method overrides the original onecomd method, to put the cmd, \
+        arg and line variables in class global variables: self.g_cmd,          \
+        self.g_arg and self.g_line.
+        Thos variables are then used by the __getattr__ method
+        """
         cmd, arg, line = self.parseline(line)
         self.g_cmd, self.g_arg, self.g_line = [cmd, arg, line] 
         if not line:
@@ -516,10 +571,20 @@ class ShellCmd(cmd.Cmd, object):
             return func(arg)
 
     def emptyline(self):
+        """ This method overrides the original emptyline method, so it doesn't \
+        repeat the last command if last command was empty.
+        I just found this annoying..
+        """
         if self.lastcmd:
             return 0
 
     def do_help(self, arg):
+        """ This method overrides the original do_help method. 
+        Instead of printing out the that are documented or not, it returns the \
+        list of allowed commands when '?' or 'help' is entered. 
+        Of course, it doesn't override the help function: any help_* method    \
+        will be called (e.g. help_help(self) )
+        """ 
         if arg:
             try:
                 func = getattr(self, 'help_' + arg)
@@ -545,6 +610,9 @@ class ShellCmd(cmd.Cmd, object):
         self.stdout.write(help_help)
 
     def mytimer(self, timeout):
+        """ This function is kicks you out the the zyshell after      \
+        the 'timer' variable exprires. 'timer' is set in seconds.
+        """ 
         # set timer
         signal.signal(signal.SIGALRM, self._timererror)
         signal.alarm(self.conf['timer'])
@@ -585,6 +653,15 @@ class CheckConfig:
         self.check_passwd()
 
     def getoptions(self, arguments, conf):
+        """ This method checks the usage. zyshell.py must be called with a      \
+        configuration file.
+        If no configuration file is specified, it will set the configuration   \
+        file path to /etc/zyshell.confelf.conf['allowed'].append('exit')
+        """
+        # uncomment the following to set the -c/--config as mandatory argument
+        #if '-c' not in arguments and '--config' not in arguments:
+        #    usage()
+
         # set config_file as default configuration file
         conf['configfile'] = config_file
 
@@ -609,10 +686,14 @@ class CheckConfig:
             if option in ['--version']:
                 self.version()
 
+        # put the expanded path of configfile and logpath (if exists) in 
+        # ZYSHELLL_ARGS environment variable
         args = ['--config', conf['configfile']]
         if conf.has_key('logpath'): args += ['--log', conf['logpath']]
         os.environ['ZYSHELLL_ARGS'] = str(args)
 
+        # if zyshell is invoked using shh autorized_keys file e.g.
+        # command="/usr/bin/zyshell", ssh-dss ....
         if os.environ.has_key('SSH_ORIGINAL_COMMAND'):
             conf['ssh'] = os.environ['SSH_ORIGINAL_COMMAND']
 
@@ -739,6 +820,8 @@ class CheckConfig:
                     logger.addHandler(self.logfile)
 
             except IOError:
+                # uncomment the 2 following lines to warn if log file is not   \
+                # writable 
                 #sys.stderr.write('Warning: Cannot write in log file: '
                 #                                        'Permission denied.\n')
                 #sys.stderr.write('Warning: Actions will not be logged.\n')
@@ -748,6 +831,12 @@ class CheckConfig:
         self.log = logger
 
     def get_config(self):
+        """ Load default, group and user configuation. Then merge them all. 
+        The loadpriority is done in the following order:
+            1- User section
+            2- Group section
+            3- Default section
+        """
         self.config.read(self.conf['configfile'])
         self.user = getuser()
 
@@ -756,6 +845,9 @@ class CheckConfig:
         # get 'default' configuration if any
         self.get_config_sub('default')
 
+        # get groups configuration if any.
+        # for each group the user belongs to, check if specific configuration  \
+        # exists.  The primary group has the highest priority. 
         grplist = os.getgroups()
         grplist.reverse()
         for gid in grplist:
@@ -866,6 +958,10 @@ class CheckConfig:
             sys.exit(1)
 
     def check_user_integrity(self):
+        """ This method checks if all the required fields by user are present  \
+        for the present user.
+        In case fields are missing, the user is notified and exited from zyshell.
+        """
         for item in required_config:
             if item not in self.conf_raw.keys():
                 self.log.critical('ERROR: Missing parameter \'' \
@@ -876,6 +972,10 @@ class CheckConfig:
                 sys.exit(0)
 
     def get_config_user(self):
+        """ Once all the checks above have passed, the configuration files     \
+        values are entered in a dict to be used by the command line it self.
+        The zyshell command line is then launched!
+        """
         # first, check user's loglevel
         if self.conf_raw.has_key('loglevel'):
             try:
@@ -1018,6 +1118,10 @@ class CheckConfig:
             pass
 
     def check_scp_sftp(self):
+        """ This method checks if the user is trying to SCP a file onto the    \
+        server. If this is the case, it checks if the user is allowed to use   \
+        SCP or not, and    acts as requested. : )
+        """
         if self.conf.has_key('ssh'):
             if os.environ.has_key('SSH_CLIENT')                                \
                                         and not os.environ.has_key('SSH_TTY'):
@@ -1131,6 +1235,12 @@ class CheckConfig:
         sys.exit(0)
 
     def check_passwd(self):
+        """ As a passwd field is required by user. This method checks in the   \
+        configuration file if the password is empty, in wich case, no password \
+        check is required. In the other case, the password is asked to be      \
+        entered. 
+        If the entered password is wrong, the user is exited from zyshell.
+        """
         if self.config.has_section(self.user):
             if self.config.has_option(self.user, 'passwd'):
                 passwd = self.config.get(self.user, 'passwd')
