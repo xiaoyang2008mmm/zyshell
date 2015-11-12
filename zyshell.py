@@ -843,8 +843,8 @@ class CheckConfig:
                         'exec', 'exit', 'fg', 'if', 'jobs', 'kill', 'login', \
                         'logout', 'set', 'shift', 'stop', 'suspend', 'umask', \
                         'unset', 'wait', 'while' ]
-        #for directory in os.environ['PATH'].split(':'):
-        for directory in ['/sbin', '/bin', '/usr/sbin', '/usr/bin']:
+	os.environ['PATH'] = os.environ['PATH'] + self.myeval(self.conf_raw['env_path'], 'env_path')
+        for directory in os.environ['PATH'].split(':'):
 	
             if os.path.exists(directory):
                 for item in os.listdir(directory):
