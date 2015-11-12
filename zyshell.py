@@ -310,15 +310,14 @@ class ShellCmd(cmd.Cmd, object):
             if self.conf['warning_counter'] < 0: 
                 self.log.critical('*** forbidden %s -> "%s"'                   \
                                                       % (messagetype ,line))
-                self.log.critical('*** Kicked out')
+                self.log.critical('*** 输入错误总数已到.被提出')
                 sys.exit(1)
             else:
                 self.log.critical('*** forbidden %s -> "%s"'                   \
                                                       % (messagetype ,line))
-                self.stderr.write('*** You have %s warning(s) left,'           \
-                                    ' before getting kicked out.\n'            \
+                self.stderr.write('*** 输入错误,还有 %s 次警告\n'           \
                                     %(self.conf['warning_counter']))
-                self.stderr.write('This incident has been reported.\n')
+                self.stderr.write('事件已经被报告.\n')
 
     def check_path(self, line, completion=None, ssh=None):
         """ Check if a path is entered in the line. If so, it checks if user   \
@@ -1202,11 +1201,12 @@ class CheckConfig:
                     # replace aliases
                     self.conf['ssh'] = get_aliases(self.conf['ssh'],           \
                                                          self.conf['aliases'])
+		    # 备注 : 因为发布需要,Jenkins通过ssh执行shell命令会受限制,故先放开
                     # if command is not "secure", exit
-                    if cli.check_secure(self.conf['ssh'], strict=1, ssh=1):
-                        self.ssh_warn('char/command over SSH', self.conf['ssh'])
+                    #if cli.check_secure(self.conf['ssh'], strict=1, ssh=1):
+                    #    self.ssh_warn('char/command over SSH', self.conf['ssh'])
                     # else
-                    self.log.error('Over SSH: "%s"' %self.conf['ssh'])
+                    #self.log.error('Over SSH: "%s"' %self.conf['ssh'])
                     # if command is "help"
                     if self.conf['ssh'] == "help":
                         cli.do_help(None)
@@ -1230,7 +1230,7 @@ class CheckConfig:
             self.log.error('*** SCP command: %s' %command)
         else:
             self.log.critical('*** forbidden %s: "%s"' %(message, command))
-        self.stderr.write('This incident has been reported.\n')
+        self.stderr.write('事件已经被报告.\n')
         self.log.error('Exited')
         sys.exit(0)
 
