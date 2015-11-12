@@ -101,7 +101,7 @@ prompt          : "[%u@%h]"
 timer           : 300
 path            : ['/data/server','/data/www']
 home_path       : '/data/server'
-env_path        : ':/sbin:/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/bin'
+env_path        : ':/sbin:/usr/sbin:/usr/bin:/usr/local/bin:/bin'
 env_vars        : {'zy':1, 'zhangyue':'zhangyue.com'}
 scp             : 1
 scp_upload      : 1
