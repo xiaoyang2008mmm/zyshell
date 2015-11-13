@@ -611,7 +611,7 @@ class CheckConfig:
 
         args = ['--config', conf['configfile']]
         if conf.has_key('logpath'): args += ['--log', conf['logpath']]
-        os.environ['ZYSHELLL_ARGS'] = str(args)
+        #os.environ['ZYSHELLL_ARGS'] = str(args)
 
         if os.environ.has_key('SSH_ORIGINAL_COMMAND'):
             conf['ssh'] = os.environ['SSH_ORIGINAL_COMMAND']
